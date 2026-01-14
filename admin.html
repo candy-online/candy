@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 Admin - Candy Shop</title>
+    <style>
+        :root { --pink: #ffb3d9; --dark-pink: #d63384; --light-pink: #ffe6f2; }
+        body { background: var(--light-pink); font-family: sans-serif; padding: 20px; text-align: center; }
+        .admin-box { background: white; padding: 20px; border-radius: 15px; max-width: 450px; margin: 20px auto; border: 1px solid var(--pink); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; }
+        .btn { background: var(--dark-pink); color: white; border: none; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 95%; margin-top: 10px; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 20px; }
+        .item-card { background: white; padding: 10px; border-radius: 10px; border: 1px solid var(--pink); font-size: 14px; }
+        .item-card img { width: 100%; height: 100px; object-fit: cover; border-radius: 5px; }
+        .delete-btn { background: red; color: white; border: none; padding: 5px; border-radius: 5px; margin-top: 5px; cursor: pointer; }
+        .sold-btn { background: orange; color: white; border: none; padding: 5px; border-radius: 5px; margin-top: 5px; cursor: pointer; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="login-section" class="admin-box">
+    <h2>🔐 Manager Login</h2>
+    <input type="password" id="admin-pass" placeholder="လျှို့ဝှက်နံပါတ်">
+    <button class="btn" onclick="checkLogin()">ဝင်မည်</button>
+</div>
+
+<div id="admin-main" class="hidden">
+    <div class="admin-box">
+        <h3>🚀 ပစ္စည်းအသစ်တင်ရန်</h3>
+        <input type="text" id="p-name" placeholder="မုန့်အမည်">
+        <input type="number" id="p-price" placeholder="ဈေးနှုန်း">
+        <input type="file" id="p-file" accept="image/*">
+        <button class="btn" id="upload-btn" onclick="uploadProduct()">Post တင်မည်</button>
+        <p id="status"></p>
+    </div>
+
+    <div class="grid" id="admin-list"></div>
+    <br><button onclick="location.reload()" style="color: grey; border: none; background: none;">ထွက်မည်</button>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC5tpWXgSS-Allqy8uy-7sdxtJJE6Z2x_4",
+        authDomain: "candy-52048.firebaseapp.com",
+        projectId: "candy-52048",
+        storageBucket: "candy-52048.firebasestorage.app",
+        messagingSenderId: "386479185750",
+        appId: "1:386479185750:web:6a96e6bcbd14c2550280f7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const IMGBB_KEY = '49e83be2a1dff75cc10e2d031d2cd372';
+
+    window.checkLogin = () => {
+        if(document.getElementById('admin-pass').value === "786") {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('admin-main').classList.remove('hidden');
+            loadAdminData();
+        } else { alert("မှားနေပါသည်"); }
+    };
+
+    window.uploadProduct = async () => {
+        const name = document.getElementById('p-name').value;
+        const price = document.getElementById('p-price').value;
+        const file = document.getElementById('p-file').files[0];
+        if(!name || !price || !file) return alert("အကုန်ဖြည့်ပါ");
+        
+        document.getElementById('upload-btn').disabled = true;
+        document.getElementById('status').innerText = "⏳ တင်နေသည်...";
+
+        let formData = new FormData();
+        formData.append('image', file);
+        let res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {method:'POST', body:formData});
+        let data = await res.json();
+        
+        await addDoc(collection(db, "products"), { name, price, image: data.data.url, sold: false, time: Date.now() });
+        alert("တင်ပြီးပါပြီ");
+        location.reload();
+    };
+
+    function loadAdminData() {
+        onSnapshot(query(collection(db, "products"), orderBy("time", "desc")), (snap) => {
+            const list = document.getElementById('admin-list');
+            list.innerHTML = "";
+            snap.forEach(d => {
+                const p = d.data();
+                const id = d.id;
+                list.innerHTML += `
+                    <div class="item-card">
+                        <img src="${p.image}">
+                        <p>${p.name}</p>
+                        <b>${p.price} MMK</b><br>
+                        <button class="sold-btn" onclick="toggleSold('${id}', ${p.sold})">${p.sold ? 'ရောင်းမည်' : 'Sold Out'}</button>
+                        <button class="delete-btn" onclick="deleteP('${id}')">ဖျက်မည်</button>
+                    </div>`;
+            });
+        });
+    }
+
+    window.toggleSold = async (id, status) => { await updateDoc(doc(db, "products", id), { sold: !status }); };
+    window.deleteP = async (id) => { if(confirm("ဖျက်မှာလား?")) await deleteDoc(doc(db, "products", id)); };
+</script>
+</body>
+</html>
