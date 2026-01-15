@@ -1,61 +1,165 @@
 <!DOCTYPE html>
-<html lang="my">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🍭 CANDY SHOP</title>
+    <title>CANDY COIN - MINING SYSTEM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        :root { --pink: #ffb3d9; --dark-pink: #d63384; --light-pink: #ffe6f2; --violet: #7360f2; }
-        body { background: var(--light-pink); font-family: sans-serif; margin: 0; padding-bottom: 50px; }
-        .header { background: var(--dark-pink); color: white; padding: 25px; text-align: center; border-radius: 0 0 20px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 15px; max-width: 800px; margin: auto; }
-        .card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid var(--pink); text-align: center; position: relative; }
-        .card img { width: 100%; height: 160px; object-fit: cover; }
-        .soldout-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 160px; background: rgba(0,0,0,0.5); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; display: none; }
-        .card.soldout .soldout-overlay { display: flex; }
-        .card.soldout .price { color: red !important; text-decoration: line-through; }
-        .card.soldout .viber-btn { background: #ccc !important; pointer-events: none; }
-        .card h3 { font-size: 16px; margin: 10px 0 5px; color: #333; }
-        .price { color: var(--dark-pink); font-weight: bold; margin-bottom: 10px; }
-        .viber-btn { background: #7360f2; color: white; padding: 8px 15px; border-radius: 10px; text-decoration: none; display: inline-block; font-weight: bold; margin-bottom: 15px; cursor: pointer; width: 85%; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #4b0082 0%, #ff1493 100%);
+            min-height: 100vh;
+            color: white;
+            display: flex; justify-content: center; align-items: center;
+        }
+        /* Lollipop Candy Design */
+        .candy-container {
+            position: relative;
+            width: 180px; height: 180px;
+            margin: 0 auto;
+        }
+        .lollipop {
+            width: 160px; height: 160px;
+            background: radial-gradient(circle, #ff69b4, #ff00ff, #8b00ff, #4b0082);
+            border: 8px solid rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 85px; font-weight: 900;
+            box-shadow: 0 0 50px rgba(255, 20, 147, 0.8);
+            cursor: pointer; transition: 0.5s;
+            position: relative; z-index: 2;
+        }
+        .lollipop span {
+            background: linear-gradient(to bottom, #fff, #ddd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+        }
+        .stick {
+            width: 12px; height: 100px;
+            background: linear-gradient(to right, #eee, #fff, #eee);
+            position: absolute; bottom: -80px; left: 50%;
+            transform: translateX(-50%); border-radius: 0 0 10px 10px;
+            z-index: 1;
+        }
+        .lollipop:active { transform: scale(0.9) rotate(15deg); }
+        .mining-animation { animation: rotateCandy 3s infinite linear; }
+        @keyframes rotateCandy {
+            from { transform: rotate(0deg); box-shadow: 0 0 30px #ff00ff; }
+            to { transform: rotate(360deg); box-shadow: 0 0 60px #00ffff; }
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 45px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 <body>
-    <div class="header"><h1>🍭 CANDY SHOP</h1></div>
-    <div class="grid" id="product-list"></div>
+    <div class="glass-panel w-full max-w-md p-8 shadow-2xl mx-4">
+        <div class="flex justify-between items-center mb-6">
+            <span id="role-tag" class="bg-pink-600 text-[10px] px-3 py-1 rounded-full font-bold">GUEST</span>
+            <div class="text-right">
+                <p class="text-[9px] opacity-60 uppercase tracking-widest">Supply Limit: 10B</p>
+                <p class="text-[9px] text-cyan-300 font-bold">Daily: 2.0 CANDY</p>
+            </div>
+        </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-black tracking-tighter mb-4 italic">CANDY BTC</h1>
+            <div class="bg-black/40 rounded-3xl py-6 border border-white/10">
+                <p class="text-[10px] opacity-50 mb-1">AVAILABLE BALANCE</p>
+                <div class="text-5xl font-bold text-cyan-300" id="balance">0.000000</div>
+                <div class="text-xs text-pink-400 mt-2 font-mono">≈ $<span id="usd-val">0.00</span> USD</div>
+            </div>
+        </div>
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyC5tpWXgSS-Allqy8uy-7sdxtJJE6Z2x_4",
-        authDomain: "candy-52048.firebaseapp.com",
-        projectId: "candy-52048",
-        storageBucket: "candy-52048.firebasestorage.app",
-        messagingSenderId: "386479185750",
-        appId: "1:386479185750:web:6a96e6bcbd14c2550280f7"
-    };
+        <div class="candy-container mb-24">
+            <div class="lollipop" id="candy-btn" onclick="startMining()">
+                <span>C</span>
+            </div>
+            <div class="stick"></div>
+        </div>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const VIBER_LINK = "viber://chat?number=+959768667971";
+        <div class="space-y-3">
+            <button onclick="exchange()" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 py-4 rounded-2xl font-black text-sm shadow-lg hover:opacity-90 transition">EXCHANGE NOW (1% FEE)</button>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white/5 p-3 rounded-2xl border border-white/10 text-center">
+                    <p class="text-[10px] opacity-50">REFERRAL</p>
+                    <p class="text-xs font-bold text-green-400">+1.0 Coin</p>
+                </div>
+                <div class="bg-white/5 p-3 rounded-2xl border border-white/10 text-center">
+                    <p class="text-[10px] opacity-50">SESSION</p>
+                    <p class="text-xs font-bold text-yellow-400" id="timer">12H Cycle</p>
+                </div>
+            </div>
+        </div>
 
-    onSnapshot(query(collection(db, "products"), orderBy("time", "desc")), (snap) => {
-        const list = document.getElementById('product-list');
-        list.innerHTML = "";
-        snap.forEach(d => {
-            const p = d.data();
-            list.innerHTML += `
-                <div class="card ${p.sold ? 'soldout' : ''}">
-                    <div class="soldout-overlay">ကုန်သွားပါပြီ</div>
-                    <img src="${p.image}">
-                    <h3>${p.name}</h3>
-                    <p class="price">${p.price} MMK</p>
-                    <a href="${VIBER_LINK}" class="viber-btn">🛒 မှာယူမည်</a>
-                </div>`;
-        });
-    });
-</script>
+        <div class="mt-8 pt-4 border-t border-white/10 flex justify-between items-center text-[10px] opacity-50">
+            <span id="user-id">ID: NOT REGISTERED</span>
+            <span>HOT MINING SYSTEM v1.0</span>
+        </div>
+    </div>
+
+    <script>
+        let balance = 0.0;
+        let isMining = false;
+        let isAdmin = false;
+
+        // Start Mining Session
+        function startMining() {
+            if (isMining && !isAdmin) {
+                alert("Mining Session Active. Wait 12 Hours.");
+                return;
+            }
+
+            isMining = true;
+            document.getElementById('candy-btn').classList.add('mining-animation');
+            
+            // Mining Logic: 1 Coin per 12 Hours (2 Coins per Day)
+            balance += 1.0; 
+            updateUI();
+            
+            if (!isAdmin) {
+                alert("Session Started! You earned 1.0 CANDY.\nNext session in 12 hours.");
+            }
+        }
+
+        // Exchange Logic
+        function exchange() {
+            if (balance <= 0) {
+                alert("Insufficient Balance to Exchange.");
+                return;
+            }
+
+            let fee = balance * 0.01; // 1% Fee
+            let final = balance - fee;
+
+            if (isAdmin) {
+                alert("Admin Exchange: Successful with 0% Fee!");
+            } else {
+                alert("Exchange Successful!\n1% Network Fee (" + fee.toFixed(4) + ") sent to Admin.");
+            }
+            
+            balance = 0;
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('balance').innerText = balance.toFixed(6);
+            document.getElementById('usd-val').innerText = (balance * 0.48).toFixed(2);
+        }
+
+        // Auto-detect Admin (Simulated for First User)
+        window.onload = () => {
+            // This would normally come from your app.py logic
+            console.log("System Ready. Branded Lollipop Design Loaded.");
+        };
+    </script>
 </body>
 </html>
