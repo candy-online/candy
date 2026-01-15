@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍭 Candy Online Shop</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pyidaungsu:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --pink: #ff80bf; --dark-pink: #d63384; --light-bg: #fff0f6; --viber: #7360f2; }
+        body { background: var(--light-bg); font-family: 'Pyidaungsu', sans-serif; margin: 0; padding-bottom: 50px; }
+        
+        /* Header */
+        .header { background: var(--dark-pink); color: white; padding: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000; }
+        .header h1 { margin: 0; font-size: 28px; font-weight: bold; letter-spacing: 2px; }
+        .viber-info { font-size: 14px; margin-top: 5px; opacity: 0.9; }
+
+        /* Amazon/Alibaba Style Grid (1 Line 5 Items) */
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(5, 1fr); /* ၁ လိုင်း ၅ ပုံ */
+            gap: 10px; 
+            padding: 15px; 
+            max-width: 1200px; 
+            margin: auto; 
+        }
+
+        /* Mobile Responsive (ဖုန်းမှာဆို ၁ လိုင်း ၂ ပုံ ဒါမှမဟုတ် ၃ ပုံပြောင်းရန်) */
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position: relative; border: 1px solid #ffe1f0; transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); }
+        .card img { width: 100%; height: 150px; object-fit: cover; cursor: pointer; }
+
+        /* Sold Out Overlay */
+        .soldout-tag { position: absolute; top: 0; left: 0; width: 100%; height: 150px; background: rgba(0,0,0,0.5); color: white; display: none; align-items: center; justify-content: center; font-weight: bold; z-index: 5; }
+        .card.sold .soldout-tag { display: flex; }
+        .card.sold .order-btn { background: #bbb !important; pointer-events: none; }
+
+        .card-info { padding: 8px; text-align: center; }
+        .card-info h3 { font-size: 13px; margin: 5px 0; color: #444; height: 35px; overflow: hidden; }
+        .price { color: var(--dark-pink); font-weight: bold; font-size: 15px; }
+
+        .order-btn { background: var(--dark-pink); color: white; border: none; padding: 8px; width: 100%; border-radius: 5px; cursor: pointer; text-decoration: none; display: block; margin-top: 5px; font-size: 12px; }
+
+        /* Admin Controls */
+        .admin-panel { background: white; padding: 20px; border-radius: 15px; margin: 20px auto; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid var(--dark-pink); }
+        .hidden { display: none; }
+        input, button#add-btn { width: 100%; padding: 10px; margin: 8px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+        
+        .admin-tools { display: flex; gap: 4px; margin-top: 5px; }
+        .admin-tools button { flex: 1; font-size: 10px; padding: 5px; border-radius: 4px; border: none; cursor: pointer; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🍭 CANDY SHOP</h1>
+    <div class="viber-info">Viber: +959768667971</div>
+</div>
+
+<div id="login-area" style="padding: 20px; text-align: center;">
+    <input type="password" id="pass" placeholder="Manager Key" style="width: 200px; padding: 10px;">
+    <button onclick="accessAdmin()" style="padding: 10px; background: var(--dark-pink); color: white; border: none; border-radius: 5px;">Login</button>
+</div>
+
+<div id="admin-area" class="admin-panel hidden">
+    <h3>🚀 ပစ္စည်းအသစ်တင်ရန်</h3>
+    <input type="text" id="name" placeholder="ပစ္စည်းအမည်">
+    <input type="number" id="price" placeholder="စျေးနှုန်း">
+    <input type="file" id="file" accept="image/*" multiple> <button id="add-btn" onclick="postItem()" style="background: var(--dark-pink); color: white;">တင်မည်</button>
+    <div id="loading" style="font-size: 12px; color: var(--dark-pink);"></div>
+</div>
+
+<div class="grid" id="display"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC5tpWXgSS-Allqy8uy-7sdxtJJE6Z2x_4",
+        authDomain: "candy-52048.firebaseapp.com",
+        projectId: "candy-52048",
+        storageBucket: "candy-52048.firebasestorage.app",
+        messagingSenderId: "386479185750",
+        appId: "1:386479185750:web:6a96e6bcbd14c2550280f7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const IMGBB_API = "49e83be2a1dff75cc10e2d031d2cd372";
+
+    let isAdmin = false;
+
+    // Password Check
+    window.accessAdmin = () => {
+        if(document.getElementById('pass').value === "786") {
+            isAdmin = true;
+            document.getElementById('admin-area').classList.remove('hidden');
+            document.getElementById('login-area').classList.add('hidden');
+            loadData();
+        } else { alert("Key မှားနေပါသည်!"); }
+    };
+
+    // Upload Post
+    window.postItem = async () => {
+        const name = document.getElementById('name').value;
+        const price = document.getElementById('price').value;
+        const files = document.getElementById('file').files;
+        const loader = document.getElementById('loading');
+
+        if(!name || !price || files.length === 0) return alert("အကုန်ဖြည့်ပါ");
+        
+        loader.innerText = "⏳ ပုံတင်နေသည်... ခဏစောင့်ပါ";
+        
+        try {
+            // Image Upload to ImgBB
+            let formData = new FormData();
+            formData.append("image", files[0]);
+            let res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API}`, { method: "POST", body: formData });
+            let imgData = await res.json();
+
+            await addDoc(collection(db, "candy_items"), {
+                name, price, img: imgData.data.url, sold: false, date: Date.now()
+            });
+
+            alert("တင်ပြီးပါပြီ!");
+            location.reload();
+        } catch(e) { alert("Error တက်နေပါသည်"); }
+    };
+
+    // Load Data
+    function loadData() {
+        onSnapshot(query(collection(db, "candy_items"), orderBy("date", "desc")), (snap) => {
+            const container = document.getElementById('display');
+            container.innerHTML = "";
+            snap.forEach(it => {
+                const data = it.data();
+                const id = it.id;
+                container.innerHTML += `
+                    <div class="card ${data.sold ? 'sold' : ''}">
+                        <div class="soldout-tag">Sold Out</div>
+                        <img src="${data.img}" onclick="window.open(this.src)">
+                        <div class="card-info">
+                            <h3>${data.name}</h3>
+                            <div class="price">${data.price} MMK</div>
+                            ${isAdmin ? `
+                                <div class="admin-tools">
+                                    <button onclick="toggleSold('${id}', ${data.sold})" style="background:#28a745">Sold</button>
+                                    <button onclick="delItem('${id}')" style="background:#dc3545">Del</button>
+                                </div>
+                            ` : `
+                                <a href="viber://chat?number=+959768667971" class="order-btn">🛒 မှာယူမည်</a>
+                            `}
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    }
+
+    window.toggleSold = async (id, status) => { await updateDoc(doc(db, "candy_items", id), { sold: !status }); };
+    window.delItem = async (id) => { if(confirm("ဖျက်မှာလား?")) await deleteDoc(doc(db, "candy_items", id)); };
+
+    loadData();
+</script>
+</body>
+</html>
