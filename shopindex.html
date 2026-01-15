@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍭 Candy Shop - Smart Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pyidaungsu:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --pink: #ffb3d9; --dark-pink: #d63384; --light-pink: #ffe6f2; --violet: #7360f2; }
+        body { background: var(--light-pink); font-family: 'Pyidaungsu', sans-serif; margin: 0; padding-bottom: 50px; color: #333; }
+        
+        /* Header & Navigation */
+        .header { background: var(--dark-pink); color: white; padding: 20px; text-align: center; border-radius: 0 0 25px 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px; }
+
+        /* Amazon/Alibaba Style Grid */
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 15px; max-width: 900px; margin: auto; }
+        .card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.05); border: 1px solid var(--pink); transition: transform 0.2s; position: relative; display: flex; flex-direction: column; }
+        .card:active { transform: scale(0.98); }
+        .card img { width: 100%; height: 180px; object-fit: cover; background: #eee; }
+
+        /* Sold Out Styling */
+        .soldout-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 180px; background: rgba(0,0,0,0.6); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; z-index: 10; display: none; }
+        .card.soldout .soldout-overlay { display: flex; }
+        .card.soldout .price { color: #ff4d4d !important; text-decoration: line-through; opacity: 0.6; }
+        .card.soldout .order-btn { background: #ccc !important; pointer-events: none; }
+
+        .card-info { padding: 12px; flex-grow: 1; text-align: left; }
+        .card-info h3 { margin: 0; font-size: 15px; height: 40px; overflow: hidden; color: #444; }
+        .price { color: var(--dark-pink); font-size: 18px; font-weight: bold; margin: 8px 0; display: block; }
+
+        /* Buttons */
+        .order-btn { background: var(--dark-pink); color: white; border: none; padding: 10px; border-radius: 10px; text-decoration: none; display: block; text-align: center; font-weight: bold; font-size: 14px; transition: 0.3s; }
+        .viber-btn { background: var(--violet); position: fixed; bottom: 20px; right: 20px; color: white; padding: 15px; border-radius: 50%; box-shadow: 0 5px 15px rgba(0,0,0,0.2); text-decoration: none; z-index: 99; font-size: 24px; }
+
+        /* Admin Panels */
+        .admin-box { background: white; padding: 25px; border-radius: 20px; max-width: 400px; margin: 20px auto; border: 1px solid var(--pink); text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; outline: none; }
+        .hidden { display: none; }
+        .admin-actions { display: flex; gap: 5px; margin-top: 10px; }
+        .admin-actions button { flex: 1; padding: 8px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div id="user-view">
+    <div class="header"><h1>🍭 CANDY SHOP</h1></div>
+    <div class="grid" id="product-list">
+        </div>
+</div>
+
+<div id="login-section" class="admin-box" style="margin-top: 50px;">
+    <h3>🔐 Manager Access</h3>
+    <input type="password" id="admin-pass" placeholder="Enter Secret Key">
+    <button class="order-btn" style="width: 100%;" onclick="checkLogin()">Login</button>
+</div>
+
+<div id="admin-section" class="admin-box hidden">
+    <h2 style="color: var(--dark-pink);">🚀 Add New Item</h2>
+    <input type="text" id="p-name" placeholder="မုန့်အမည်">
+    <input type="number" id="p-price" placeholder="ဈေးနှုန်း (MMK)">
+    <p style="font-size: 12px; color: #888; text-align: left; margin: 5px 0 0;">📷 ပုံရွေးပါ (Camera/Gallery)</p>
+    <input type="file" id="p-file" accept="image/*">
+    <button class="order-btn" style="width: 100%; margin-top: 10px;" id="upload-btn" onclick="uploadProduct()">တင်မည်</button>
+    <p id="status" style="font-size: 13px;"></p>
+    <hr style="border: 0.5px solid var(--light-pink); margin: 20px 0;">
+    <button onclick="location.reload()" style="background: none; border: none; color: #888; cursor: pointer;">Admin Logout</button>
+</div>
+
+<a href="viber://chat?number=+959768667971" class="viber-btn">📞</a>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC5tpWXgSS-Allqy8uy-7sdxtJJE6Z2x_4",
+        authDomain: "candy-52048.firebaseapp.com",
+        projectId: "candy-52048",
+        storageBucket: "candy-52048.firebasestorage.app",
+        messagingSenderId: "386479185750",
+        appId: "1:386479185750:web:6a96e6bcbd14c2550280f7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const IMGBB_KEY = '49e83be2a1dff75cc10e2d031d2cd372';
+
+    // 1. Login System (Password = 786)
+    window.checkLogin = () => {
+        if(document.getElementById('admin-pass').value === "786") {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('admin-section').classList.remove('hidden');
+            renderProducts(true);
+        } else { alert("Key မှားနေပါသည်"); }
+    };
+
+    // 2. Upload System (Camera & Gallery Support)
+    window.uploadProduct = async () => {
+        const name = document.getElementById('p-name').value;
+        const price = document.getElementById('p-price').value;
+        const file = document.getElementById('p-file').files[0];
+        const btn = document.getElementById('upload-btn');
+        const status = document.getElementById('status');
+
+        if(!name || !price || !file) return alert("အချက်အလက် အကုန်ဖြည့်ပါ");
+        
+        btn.disabled = true;
+        status.innerText = "⏳ တင်နေပါသည်... ခဏစောင့်ပါ";
+
+        try {
+            let formData = new FormData();
+            formData.append('image', file);
+            let res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {method:'POST', body:formData});
+            let data = await res.json();
+            
+            await addDoc(collection(db, "products"), {
+                name, price, image: data.data.url, sold: false, time: Date.now()
+            });
+            
+            status.innerText = "✅ တင်ပြီးပါပြီ";
+            document.getElementById('p-name').value = "";
+            document.getElementById('p-price').value = "";
+            document.getElementById('p-file').value = "";
+        } catch(e) { 
+            alert("Error: ပုံတင်မရဖြစ်နေသည်"); 
+        } finally {
+            btn.disabled = false;
+        }
+    };
+
+    // 3. Smart Data Rendering (Sync Real-time)
+    function renderProducts(isAdmin = false) {
+        onSnapshot(query(collection(db, "products"), orderBy("time", "desc")), (snap) => {
+            const list = document.getElementById('product-list');
+            list.innerHTML = "";
+            snap.forEach(d => {
+                const p = d.data();
+                const id = d.id;
+                
+                list.innerHTML += `
+                    <div class="card ${p.sold ? 'soldout' : ''}">
+                        <div class="soldout-overlay">ကုန်သွားပါပြီ</div>
+                        <img src="${p.image}" loading="lazy">
+                        <div class="card-info">
+                            <h3>${p.name}</h3>
+                            <span class="price">${parseInt(p.price).toLocaleString()} MMK</span>
+                            ${isAdmin ? `
+                                <div class="admin-actions">
+                                    <button onclick="toggleSold('${id}', ${p.sold})" style="background: #4CAF50; color:white;">${p.sold ? 'ရောင်းမည်' : 'Sold Out'}</button>
+                                    <button onclick="deleteP('${id}')" style="background: #f44336; color:white;">ဖျက်မည်</button>
+                                </div>
+                            ` : `
+                                <a href="viber://chat?number=+959768667971" class="order-btn">🛒 မှာယူမည်</a>
+                            `}
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    }
+
+    // 4. Admin Functions
+    window.toggleSold = async (id, currentStatus) => {
+        await updateDoc(doc(db, "products", id), { sold: !currentStatus });
+    };
+
+    window.deleteP = async (id) => {
+        if(confirm("ဤပစ္စည်းကို ဖျက်ရန် သေချာပါသလား?")) {
+            await deleteDoc(doc(db, "products", id));
+        }
+    };
+
+    // Initial Load for Public
+    renderProducts(false);
+
+</script>
+</body>
+</html>
